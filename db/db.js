@@ -1,8 +1,7 @@
 require('dotenv').config();
 const { Client } = require('pg');
 
-const connectionString =
-  process.env.DATABASE_URL || 'postgres://postgres:postgres@localhost:5432/h1';
+const connectionString = process.env.DATABASE_URL;
 
 async function queryDb(q, values = []) {
   const client = new Client({ connectionString });

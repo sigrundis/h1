@@ -13,9 +13,9 @@ CREATE TABLE categories (
 
 CREATE TABLE books (
   id serial PRIMARY KEY,
-  title character varying(50) NOT NULL,
+  title character varying(200) NOT NULL,
   ISBN13 character varying(13) NOT NULL, 
-  author character varying(50),
+  author character varying(200),
   description text, 
   categoryId int REFERENCES categories (id)
 );

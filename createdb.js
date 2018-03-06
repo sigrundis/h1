@@ -6,7 +6,6 @@ const util = require('util');
 const { Client } = require('pg');
 
 const connectionString = process.env.DATABASE_URL;
-console.log(connectionString);
 
 const readFileAsync = util.promisify(fs.readFile);
 

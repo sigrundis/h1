@@ -17,4 +17,5 @@ async function create(title, ISBN13, category, author = null, description = null
 
 module.exports = {
   create,
+  INSERT_INTO_BOOKS,
 };

@@ -1,11 +1,57 @@
 require('dotenv').config();
-
+const { Client } = require('pg');
 const csv = require('csvtojson');
 
-const categories = require('./db/categoriesDb');
-const books = require('./db/booksDb');
+const { READ_CATEGORY_BY_TITLE, INSERT_INTO_CATEGORIES } = require('./db/categoriesDb');
+const { INSERT_INTO_BOOKS } = require('./db/booksDb');
 
-async function populate() {
+const connectionString = process.env.DATABASE_URL;
+
+// Custom query that doesnt close the connection
+async function query(q, values, client) {
+  try {
+    const result = await client.query(q, values);
+    return result;
+  } catch (err) {
+    console.error('Error running query, closing connection');
+    client.end();
+    throw err;
+  }
+}
+
+// Populates the database with the data
+async function populate(booksParsed) {
+  const client = new Client({ connectionString });
+
+  await client.connect();
+
+  // Synchronusly write the books to the database
+  for (let i = 0; i < booksParsed.length; i += 1) {
+    const book = booksParsed[i];
+    // Get the row for the title
+    const queryCategoryRead = READ_CATEGORY_BY_TITLE;
+    const valuesCategory = [book.category];
+    let { rows: category } = await query(queryCategoryRead, valuesCategory, client);
+
+    // If the row does not exist, add the title to the database
+    if (category.length === 0) {
+      const queryCategorCreate = INSERT_INTO_CATEGORIES;
+      const { rows } = await query(queryCategorCreate, valuesCategory, client);
+      category = rows;
+    }
+
+    // Add the book to the database
+    const queryBooksCreate = INSERT_INTO_BOOKS;
+    const valuesBooks = [book.title, book.isbn13, book.author, book.description, category[0].id];
+    await query(queryBooksCreate, valuesBooks, client);
+  }
+
+  client.end();
+  console.info('Database populated');
+}
+
+// Reads the csv file and parses the data
+async function readFile() {
   const booksParsed = [];
 
   // Read the csv
@@ -21,25 +67,13 @@ async function populate() {
         console.error(error);
         return;
       }
-      // Synchronusly write the books to the database
-      for (let i = 0; i < booksParsed.length; i += 1) {
-        const book = booksParsed[i];
-        // Get the row for the title
-        let { rows: category } = await categories.readByTitle(book.category);
-        // If the row does not exist, add the title to the database
-        if (category.length === 0) {
-          const result = await categories.create(book.category);
-          category = result.rows;
-        }
-        // Add the book to the database
-        await books.create(book.title, book.isbn13, category[0].id, book.author, book.description);
-      }
+      console.info('File read');
 
-      console.info('Database populated');
+      populate(booksParsed);
     });
   console.info('Starting');
 }
 
-populate().catch((err) => {
+readFile().catch((err) => {
   console.error('Error populating schema', err);
 });

@@ -24,6 +24,19 @@ function validateCategory(title) {
 
 // Database functions
 
+async function readByTitle(title) {
+  const query = READ_CATEGORY_BY_TITLE;
+
+  const values = [title];
+
+  const result = await queryDb(query, values);
+
+  return {
+    success: true,
+    data: result.rows[0],
+  };
+}
+
 async function create(title) {
   const validation = validateCategory(title);
 
@@ -36,6 +49,20 @@ async function create(title) {
   }
 
   const cleanTitle = xss(title);
+
+  // Check if title already exists
+  const titleFromDb = await readByTitle(cleanTitle);
+
+  if (titleFromDb.data) {
+    return {
+      success: false,
+      validation: {
+        field: 'title',
+        message: 'Title already exists',
+      },
+      data: null,
+    };
+  }
 
   const query = INSERT_INTO_CATEGORIES;
 

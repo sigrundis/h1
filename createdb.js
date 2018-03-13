@@ -6,7 +6,6 @@ const util = require('util');
 const { Client } = require('pg');
 
 const connectionString = process.env.DATABASE_URL;
-console.log(connectionString);
 
 const readFileAsync = util.promisify(fs.readFile);
 
@@ -38,6 +37,6 @@ async function create() {
   console.info('Schema created');
 }
 
-create().catch((err) => {
+create().catch(err => {
   console.error('Error creating schema', err);
 });

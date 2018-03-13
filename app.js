@@ -5,20 +5,18 @@ const login = require('./routes/loginRoute');
 const users = require('./routes/usersRoute');
 const books = require('./routes/booksRoute');
 const categories = require('./routes/categoriesRoute');
+const authenticate = require('./middlewares/authenticate');
 
 const app = express();
 const { PORT: port = 3000, HOST: host = '127.0.0.1' } = process.env;
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+authenticate(app);
+
 app.use('/register', register);
 app.use('/login', login);
-app.use((req, res, next) => {
-  if (req.isAuthenticated()) {
-    res.locals.user = req.user;
-  }
-  next();
-});
 app.use('/users', users);
 // app.use('/books', books);
 // app.use('/categories', categories);

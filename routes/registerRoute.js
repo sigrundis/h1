@@ -8,13 +8,18 @@ function catchErrors(fn) {
 }
 
 async function registerUser(req, res) {
-  console.log('reynir ad registera');
-  const { username, password, name, imgUrl } = req.body;
-  console.log('username', username);
-
-  const result = await createUser(username, password, name, imgUrl);
-  console.log('result', result);
-
+  const {
+    username,
+    password,
+    name,
+    imgUrl,
+  } = req.body;
+  const result = await createUser({
+    username,
+    password,
+    name,
+    imgUrl,
+  });
   if (!result.success) {
     return res.status(400).json(result.validation);
   }

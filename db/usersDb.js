@@ -10,9 +10,11 @@ const FIND_USER_BY_ID = 'SELECT * FROM users WHERE id = $1';
 const READ_ALL_USERS = 'SELECT * FROM users';
 const UPDATE_USERS = 'UPDATE users SET password = $2, name = $3 WHERE id = $1';
 
-const INSERT_INTO_READBOOKS =
-  'INSERT INTO readbooks(title, ISBN13, author, description, category)VALUES($1, $2, $3, $4, $5) RETURNING *';
-const DELETE_ROW_IN_READBOOKS = 'DELETE FROM readbooks WHERE  id = $1';
+// const INSERT_INTO_READBOOKS =
+//    'INSERT INTO readbooks(title, ISBN13, author, description, category)
+//    VALUES($1, $2, $3, $4, $5)
+//    RETURNING *';
+// const DELETE_ROW_IN_READBOOKS = 'DELETE FROM readbooks WHERE  id = $1';
 
 function objToCleanArray(object) {
   let array = object && Object.values(object);
@@ -21,8 +23,7 @@ function objToCleanArray(object) {
 }
 
 async function select() {
-  const result = await queryDb(READALL_USERS);
-
+  const result = await queryDb(READ_ALL_USERS);
   return result;
 }
 
@@ -44,15 +45,23 @@ async function findByUsername(username) {
 
 async function findById(id) {
   const result = await queryDb(FIND_USER_BY_ID, [id]);
-
+  const { username, name, imgurl } = result.rows[0];
   if (result.rowCount === 1) {
     return {
       success: true,
-      data: result.rows[0],
+      data: {
+        id,
+        username,
+        name,
+        imgurl,
+      },
     };
   }
 
-  return { success: false, data: null };
+  return {
+    success: false,
+    data: null,
+  };
 }
 
 async function readAll() {
@@ -63,7 +72,7 @@ async function readAll() {
   };
 }
 
-async function validateNewUser(username, password, name) {
+async function validateNewUser({ username, password, name } = {}) {
   const user = await findByUsername(username);
 
   if (user) {
@@ -73,7 +82,11 @@ async function validateNewUser(username, password, name) {
     };
   }
 
-  if (!validator.isByteLength(username, { min: 3 })) {
+  if (
+    !validator.isByteLength(username, {
+      min: 3,
+    })
+  ) {
     return {
       field: 'username',
       error: 'Notendanafn verður að vera amk 3 stafir',
@@ -82,7 +95,9 @@ async function validateNewUser(username, password, name) {
 
   if (
     typeof password !== 'string' ||
-    !validator.isByteLength(password, { min: 6 })
+    !validator.isByteLength(password, {
+      min: 6,
+    })
   ) {
     return {
       field: 'username',
@@ -90,7 +105,11 @@ async function validateNewUser(username, password, name) {
     };
   }
 
-  if (!validator.isByteLength(name, { min: 1 })) {
+  if (
+    !validator.isByteLength(name, {
+      min: 1,
+    })
+  ) {
     return {
       field: 'name',
       error: 'Nafn má ekki vera tómt',
@@ -100,10 +119,12 @@ async function validateNewUser(username, password, name) {
   return null;
 }
 
-async function validateUpdatedUser(password, name) {
+async function validateUpdatedUser({ password, name } = {}) {
   if (
     typeof password !== 'string' ||
-    !validator.isByteLength(password, { min: 6 })
+    !validator.isByteLength(password, {
+      min: 6,
+    })
   ) {
     return {
       field: 'username',
@@ -111,7 +132,11 @@ async function validateUpdatedUser(password, name) {
     };
   }
 
-  if (!validator.isByteLength(name, { min: 1 })) {
+  if (
+    !validator.isByteLength(name, {
+      min: 1,
+    })
+  ) {
     return {
       field: 'name',
       error: 'Nafn má ekki vera tómt',
@@ -121,8 +146,19 @@ async function validateUpdatedUser(password, name) {
   return null;
 }
 
-async function createUser(username, password, name, imgUrl) {
-  const validationMessage = await validateNewUser(username, password, name);
+async function createUser({
+  username,
+  password,
+  name,
+  imgUrl,
+} = {}) {
+  const user = {
+    username,
+    password,
+    name,
+    imgUrl,
+  };
+  const validationMessage = await validateNewUser(user);
   if (validationMessage) {
     return {
       success: false,
@@ -131,10 +167,18 @@ async function createUser(username, password, name, imgUrl) {
     };
   }
   const hashedPassword = await bcrypt.hash(password, 11);
-  const user = { username, password: hashedPassword, name, imgUrl };
+  user.password = hashedPassword;
   const cleanArray = objToCleanArray(user);
   await queryDb(INSERT_INTO_USERS, cleanArray);
-  const userWithoutPw = { username, name, imgUrl };
+  const updatedTable = await select().catch(e => console.error(e));
+  const newUser = updatedTable.rows.slice(-1).pop();
+  const { id } = newUser;
+  const userWithoutPw = {
+    id,
+    username,
+    name,
+    imgUrl,
+  };
   return {
     success: true,
     validation: [],
@@ -142,8 +186,9 @@ async function createUser(username, password, name, imgUrl) {
   };
 }
 
-async function update(id, password, name) {
-  const validationMessage = await validateUpdatedUser(password, name);
+async function update({ id, password, name } = {}) {
+  const user = { id, password, name };
+  const validationMessage = await validateUpdatedUser({ password, name });
   if (validationMessage) {
     return {
       success: false,
@@ -152,18 +197,19 @@ async function update(id, password, name) {
     };
   }
   const hashedPassword = await bcrypt.hash(password, 11);
-  const data = { password: hashedPassword, name };
-  const cleanArray = objToCleanArray(data);
+  user.password = hashedPassword;
+  const cleanArray = objToCleanArray(user);
   await queryDb(UPDATE_USERS, cleanArray);
-  const updatedUser = await findById(id);
+  const updatedUser = await findById(user.id);
+  const { data } = updatedUser;
   return {
     success: true,
     validation: [],
     data: {
-      id: updatedUser.id,
-      username: updatedUser.username,
-      name: updatedUser.name,
-      imgurl: updatedUser.imgurl,
+      id: data.id,
+      username: data.username,
+      name: data.name,
+      imgurl: data.imgurl,
     },
   };
 }

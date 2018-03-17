@@ -9,9 +9,9 @@ function catchErrors(fn) {
 
 async function readAllUsers(req, res) {
   const result = await readAll();
-
-  const usersWithoutPw = result.data.map(d => {
-    return { username: d.username, name: d.name, imgurl: d.imgurl };
+  const usersWithoutPw = result.data.map((d) => {
+    const { username, name, imgurl } = d;
+    return { username, name, imgurl };
   });
 
   return res.json(usersWithoutPw);
@@ -27,9 +27,6 @@ async function getUserById(req, res) {
 }
 
 async function getLoggedInUser(req, res) {
-  console.log('isAuthinLoggedInUser', req.isAuthenticated());
-  console.log('res.locals', res.locals);
-  console.log('req.user i getloggedinuser', req.user);
   if (req.user) {
     const { username, name, imgurl } = req.user;
     const user = { username, name, imgurl };
@@ -41,18 +38,17 @@ async function getLoggedInUser(req, res) {
 async function updateUser(req, res) {
   const { password, name } = req.body;
   if (req.user) {
-    const { id } = req.user.data;
-    const result = await update(id, password, name);
-    if (result.success) {
-      return res.json(result.data);
+    const { id } = req.user;
+    const result = await update({ id, password, name });
+    if (!result.success) {
+      return res.json(result.validation);
     }
-    return res.status(400).json({ error: 'Database error has occurred' });
+    return res.json(result.data);
   }
   return res.status(404).json({ error: 'You are not logged in' });
 }
 
 router.use((req, res, next) => {
-  console.log('fer i router.use i users', req.isAuthenticated());
   if (req.isAuthenticated()) {
     res.locals.user = req.user;
   }

@@ -37,6 +37,6 @@ async function create() {
   console.info('Schema created');
 }
 
-create().catch(err => {
+create().catch((err) => {
   console.error('Error creating schema', err);
 });

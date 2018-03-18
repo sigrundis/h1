@@ -10,7 +10,8 @@ function catchErrors(fn) {
 async function readAllUsers(req, res) {
   const result = await readAll();
   const usersWithoutPw = result.data.map((d) => {
-    const { username, name, imgurl } = d;
+    const { username, name } = d;
+    const imgurl = d.imgurl || '';
     return { username, name, imgurl };
   });
   return res.json(usersWithoutPw);

@@ -33,7 +33,7 @@ async function comparePasswords(password, hash) {
 }
 
 async function findByUsername(username) {
-  const result = await queryDb(FIND_USER_BY_USERNAME, [username]);
+  const result = await queryDb(FIND_USER_BY_USERNAME, [xss(username)]);
   if (result.rowCount === 1) {
     return result.rows[0];
   }

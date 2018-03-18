@@ -13,29 +13,38 @@ async function readAllUsers(req, res) {
     const { username, name, imgurl } = d;
     return { username, name, imgurl };
   });
-
   return res.json(usersWithoutPw);
 }
 
 async function getUserById(req, res) {
   const { id } = req.params;
-  const result = await findById(id);
-  if (result.success) {
-    return res.json(result.data);
+  const user = await findById(id);
+  if (user) {
+    const {
+      username,
+      name,
+      imgurl,
+    } = user;
+    return res.json({
+      id,
+      username,
+      name,
+      imgurl,
+    });
   }
   return res.status(404).json({ error: 'User not found' });
 }
 
 async function getLoggedInUser(req, res) {
   if (req.user) {
-    const { username, name, imgurl } = req.user;
-    const user = { username, name, imgurl };
-    return res.json(user);
+    const { username, name } = req.user;
+    const imgurl = req.user.imgurl || '';
+    return res.json({ username, name, imgurl });
   }
   return res.status(401).json({ error: 'You are not logged in' });
 }
 
-async function updateUser(req, res) {
+async function updateLoggedInUser(req, res) {
   const { password, name } = req.body;
   if (req.user) {
     const { id } = req.user;
@@ -43,7 +52,9 @@ async function updateUser(req, res) {
     if (!result.success) {
       return res.json(result.validation);
     }
-    return res.json(result.data);
+    const updatedUser = result.data;
+    updatedUser.imgurl = result.data.imgurl || '';
+    return res.json(updatedUser);
   }
   return res.status(404).json({ error: 'You are not logged in' });
 }
@@ -57,7 +68,7 @@ router.use((req, res, next) => {
 
 router.get('/', catchErrors(readAllUsers));
 router.get('/me', catchErrors(getLoggedInUser));
-router.patch('/me', catchErrors(updateUser));
+router.patch('/me', catchErrors(updateLoggedInUser));
 router.get('/:id', catchErrors(getUserById));
 
 module.exports = router;

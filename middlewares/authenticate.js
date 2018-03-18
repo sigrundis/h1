@@ -22,7 +22,6 @@ function authenticate(app) {
         if (!user) {
           return false;
         }
-        // If user was found check password
         const result = users.comparePasswords(password, user.password);
         if (result) {
           return user;
@@ -44,7 +43,7 @@ function authenticate(app) {
   passport.deserializeUser((id, done) => {
     users
       .findById(id)
-      .then(user => done(null, user.data))
+      .then(user => done(null, user))
       .catch(err => done(err));
   });
 
@@ -53,7 +52,7 @@ function authenticate(app) {
 
   function consistentLogin(req, res, next) {
     if (req.isAuthenticated()) {
-      // getum núna notað user í viewum
+      // Now we can use the user in veiws.
       res.locals.user = req.user;
     }
     next();

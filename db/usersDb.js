@@ -4,7 +4,7 @@ const validator = require('validator');
 const xss = require('xss'); // eslint-disable-line
 
 const INSERT_INTO_USERS =
-  'INSERT INTO users(username, password, name, imgUrl)VALUES($1, $2, $3, $4) RETURNING *';
+  'INSERT INTO users(username, password, name)VALUES($1, $2, $3) RETURNING *';
 const FIND_USER_BY_USERNAME = 'SELECT * FROM users WHERE username = $1';
 const FIND_USER_BY_ID = 'SELECT * FROM users WHERE id = $1';
 const READ_ALL_USERS = 'SELECT * FROM users';
@@ -29,39 +29,23 @@ async function select() {
 
 async function comparePasswords(password, hash) {
   const result = await bcrypt.compare(password, hash);
-
   return result;
 }
 
 async function findByUsername(username) {
   const result = await queryDb(FIND_USER_BY_USERNAME, [username]);
-
   if (result.rowCount === 1) {
     return result.rows[0];
   }
-
   return null;
 }
 
 async function findById(id) {
-  const result = await queryDb(FIND_USER_BY_ID, [id]);
-  const { username, name, imgurl } = result.rows[0];
+  const result = await queryDb(FIND_USER_BY_ID, [xss(id)]);
   if (result.rowCount === 1) {
-    return {
-      success: true,
-      data: {
-        id,
-        username,
-        name,
-        imgurl,
-      },
-    };
+    return result.rows[0];
   }
-
-  return {
-    success: false,
-    data: null,
-  };
+  return null;
 }
 
 async function readAll() {
@@ -150,13 +134,11 @@ async function createUser({
   username,
   password,
   name,
-  imgUrl,
 } = {}) {
   const user = {
     username,
     password,
     name,
-    imgUrl,
   };
   const validationMessage = await validateNewUser(user);
   if (validationMessage) {
@@ -170,24 +152,31 @@ async function createUser({
   user.password = hashedPassword;
   const cleanArray = objToCleanArray(user);
   await queryDb(INSERT_INTO_USERS, cleanArray);
+  // To get the id of the new user.
   const updatedTable = await select().catch(e => console.error(e));
   const newUser = updatedTable.rows.slice(-1).pop();
   const { id } = newUser;
-  const userWithoutPw = {
-    id,
-    username,
-    name,
-    imgUrl,
-  };
   return {
     success: true,
     validation: [],
-    data: userWithoutPw,
+    data: {
+      id,
+      username,
+      name,
+    },
   };
 }
 
 async function update({ id, password, name } = {}) {
   const user = { id, password, name };
+  const userToUpdate = await findById(id);
+  if (!userToUpdate) {
+    return {
+      success: false,
+      validation: [{ error: `User with id: ${id} does not exist.` }],
+      data: null,
+    };
+  }
   const validationMessage = await validateUpdatedUser({ password, name });
   if (validationMessage) {
     return {
@@ -200,16 +189,16 @@ async function update({ id, password, name } = {}) {
   user.password = hashedPassword;
   const cleanArray = objToCleanArray(user);
   await queryDb(UPDATE_USERS, cleanArray);
-  const updatedUser = await findById(user.id);
-  const { data } = updatedUser;
+  const updatedUser = await findById(id);
+  const { username, imgurl } = updatedUser;
   return {
     success: true,
     validation: [],
     data: {
-      id: data.id,
-      username: data.username,
-      name: data.name,
-      imgurl: data.imgurl,
+      id,
+      username,
+      name,
+      imgurl,
     },
   };
 }

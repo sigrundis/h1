@@ -12,13 +12,11 @@ async function registerUser(req, res) {
     username,
     password,
     name,
-    imgUrl,
   } = req.body;
   const result = await createUser({
     username,
     password,
     name,
-    imgUrl,
   });
   if (!result.success) {
     return res.status(400).json(result.validation);

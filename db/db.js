@@ -16,7 +16,6 @@ async function queryDb(q, values = []) {
   } finally {
     await client.end();
   }
-
   return result;
 }
 

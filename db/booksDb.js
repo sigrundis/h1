@@ -16,11 +16,8 @@ const UNIQUE_TITLE =
   'SELECT * FROM books WHERE title = $1';
 const UNIQUE_ISBN13 =
   'SELECT * FROM books WHERE ISBN13 = $1';
-//Hér er eitthvað vandamál í hvernig strengurinn er skilgreindur
-const SEARCH_BOOKS =
-  'SELECT * FROM books WHERE title LIKE %$1%';
 
-//Bætir bókum í gagnagrunninn
+// Bætir bókum í gagnagrunninn
 async function create(title, ISBN13, category, author = null, description = null) {
   const query = INSERT_INTO_BOOKS;
 
@@ -31,7 +28,7 @@ async function create(title, ISBN13, category, author = null, description = null
   return result;
 }
 
-//Vinnur úr beiðnum og sendir þær áfram á gagnagrunninn
+// Vinnur úr beiðnum og sendir þær áfram á gagnagrunninn
 async function select(tablename) {
   const query = `SELECT * FROM ${tablename}`;
 
@@ -40,9 +37,17 @@ async function select(tablename) {
   return result;
 }
 
-//Athugar hvort gildið er einstakt
+// Vinnur úr beiðni með tilteknum leitarstreng
+async function findBooks(search) {
+  const query = `SELECT * FROM books WHERE title LIKE '%${search}%'`;
+
+  const result = await queryDb(query);
+
+  return result;
+}
+
+// Athugar hvort gildið er einstakt
 async function checkUnique(queryCheck, id, valueCheck) {
-  console.log(queryCheck);
   const query = queryCheck;
   let values = [];
   if (id) {
@@ -50,7 +55,6 @@ async function checkUnique(queryCheck, id, valueCheck) {
   } else {
     values = [valueCheck];
   }
-  console.log(values);
   const result = await queryDb(query, values);
 
   return {
@@ -59,9 +63,8 @@ async function checkUnique(queryCheck, id, valueCheck) {
   };
 }
 
-//Athugar hvort það séu einhverjar villur í þeim gögnum sem sett eru inn
+// Athugar hvort það séu einhverjar villur í þeim gögnum sem sett eru inn
 async function errorCheck(note) {
-  console.log(note.categoryid);
   if (!validator.isByteLength(note.title, { min: 1 })) {
     return {
       field: 'title',
@@ -128,7 +131,7 @@ async function errorCheck(note) {
   return null;
 }
 
-//Bætir við bók
+// Bætir við bók
 async function addOne({
   title,
   isbn13,
@@ -144,9 +147,9 @@ async function addOne({
     description,
     categoryid,
   };
-  console.log(info);
+
   const validatorErrors = await errorCheck(info);
- 
+
   if (validatorErrors) {
     createItem.error = {
       field: validatorErrors.field,
@@ -184,48 +187,46 @@ async function addOne({
   }
 }
 
-//Finnur allar bækur eða bækur sem uppfylla viðeigandi leitarstreng
+// Finnur allar bækur eða bækur sem uppfylla viðeigandi leitarstreng
 async function findAll(search) {
   const info = {};
   const table = await select('books');
-  
 
   try {
     if (!search) {
       info.data = table.rows;
       return info;
-    } else {
-      const searchClean = search.replace(/\s/g, '');
-      if (searchClean.length === 0) {
-        info.error = {
-          error: 'The search string is empty',
-          status: 400,
-        };
-        return info;
-      } 
-      
-      const values = [xss(search)];
-      const result = await queryDb(SEARCH_BOOKS, values);
-  
-      if (result.rows.length === 0) {
-        info.error = {
-          error: 'No books matching the query',
-          status: 404,
-        };
-      }
-      info.data = result.rows;
+    }
+    const searchClean = search.replace(/\s/g, '');
+    if (searchClean.length === 0) {
+      info.error = {
+        error: 'The search string is empty',
+        status: 400,
+      };
       return info;
     }
+
+    const values = xss(search);
+    const result = await findBooks(values);
+
+    if (result.rows.length === 0) {
+      info.error = {
+        error: 'No books matching the query',
+        status: 404,
+      };
+    }
+    info.data = result.rows;
+    return info;
   } catch (e) {
     info.error = {
       error: 'Database error has occurred',
       status: 400,
     };
     return info;
-  }  
+  } 
 }
 
-//Uppfærir bók
+// Uppfærir bók
 async function update(id, {
   title,
   isbn13,
@@ -280,7 +281,7 @@ async function update(id, {
   }
 }
 
-//Finnur eina bók eftir id-inu hennar
+// Finnur eina bók eftir id-inu hennar
 async function readOne(id) {
   const info = {};
 

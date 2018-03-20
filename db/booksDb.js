@@ -58,19 +58,20 @@ async function checkUnique(queryCheck, id, valueCheck) {
 
 // Athugar hvort það séu einhverjar villur í þeim gögnum sem sett eru inn
 async function errorCheck(note) {
+  const validationArray = [];
   if (!validator.isByteLength(note.title, { min: 1 })) {
-    return {
+    validationArray.push({
       field: 'title',
       error: 'Title must be a string of at least length 1',
       status: 400,
-    };
+    });
   }
   if (!note.title.replace(/\s/g, '').length) {
-    return {
+    validationArray.push({
       field: 'title',
       error: 'Title can not be empty ',
       status: 400,
-    };
+    });
   }
   let titleFromDB;
 
@@ -80,24 +81,24 @@ async function errorCheck(note) {
     titleFromDB = await checkUnique(UNIQUE_TITLE, note.id, xss(note.title));
   }
   if (titleFromDB.data) {
-    return {
+    validationArray.push({
       field: 'title',
       error: 'Title already exists',
-    };
+    });
   }
   if (!validator.isInt(note.isbn13)) {
-    return {
+    validationArray.push({
       field: 'isbn13',
       error: 'isbn13 must be an integer',
       status: 400,
-    };
+    });
   }
   if (note.isbn13.length !== 13) {
-    return {
+    validationArray.push({
       field: 'isbn13',
       error: 'isbn13 must be an integer of length 13',
       status: 400,
-    };
+    });
   }
   let ISBN13FromDb;
 
@@ -108,20 +109,20 @@ async function errorCheck(note) {
   }
 
   if (ISBN13FromDb.data) {
-    return {
+    validationArray.push({
       field: 'isbn13',
       error: 'isbn13 must be unique',
-    };
+    });
   }
 
   if (!note.categoryid) {
-    return {
+    validationArray.push({
       field: 'categoryid',
       error: 'categoryid must be defined',
       status: 400,
-    };
+    });
   }
-  return null;
+  return validationArray;
 }
 
 // Bætir við bók
@@ -132,7 +133,6 @@ async function addOne({
   description,
   categoryid,
 } = {}) {
-  const createItem = {};
   const info = {
     title,
     isbn13,
@@ -142,42 +142,32 @@ async function addOne({
   };
 
   const validatorErrors = await errorCheck(info);
-
-  if (validatorErrors) {
-    createItem.error = {
-      field: validatorErrors.field,
-      error: validatorErrors.error,
-      status: 400,
+  if (validatorErrors.length > 0) {
+    return {
+      success: false,
+      validatorErrors,
+      data: null,
     };
-    return createItem;
   }
+  const table = await select('books');
+  const nextId = table.rows.map(i => i.id).reduce((a, b) => (a > b ? a : b + 1), 1);
 
-  try {
-    const table = await select('books');
-    const nextId = table.rows.map(i => i.id).reduce((a, b) => (a > b ? a : b + 1), 1);
+  const item = {
+    id: nextId,
+    title: xss(title),
+    isbn13: xss(isbn13),
+    author: xss(author),
+    description: xss(description),
+    categoryid: xss(categoryid),
+  };
 
-    const item = {
-      id: nextId,
-      title: xss(title),
-      isbn13: xss(isbn13),
-      author: xss(author),
-      description: xss(description),
-      categoryid: xss(categoryid),
-    };
-    const id = nextId;
-    const cleanArray = item && Object.values(item);
-    await queryDb(INSERT_INTO_BOOKS, cleanArray);
-    const updateTable = await select('books');
-    createItem.item = updateTable.rows.find(i => i.id === parseInt(id, 10));
-    return createItem;
-  } catch (e) {
-    console.error(e);
-    createItem.error = {
-      error: 'Database error has occurred',
-      status: 400,
-    };
-    return createItem;
-  }
+  const cleanArray = item && Object.values(item);
+  await queryDb(INSERT_INTO_BOOKS, cleanArray);
+  return {
+    success: true,
+    valdatorErrors: [],
+    data: item,
+  };
 }
 
 // Finnur allar bækur eða bækur sem uppfylla viðeigandi leitarstreng
@@ -225,7 +215,6 @@ async function update(id, {
   description,
   categoryid,
 } = {}) {
-  const updateItem = {};
   const info = {
     id,
     title,
@@ -235,41 +224,34 @@ async function update(id, {
     categoryid,
   };
 
-  try {
-    const table = await select('books');
-    const item = table.rows.find(i => i.id === parseInt(id, 10));
-    const errors = await errorCheck(info);
+  const table = await select('books');
+  const item = table.rows.find(i => i.id === parseInt(id, 10));
+  const validatorErrors = await errorCheck(info);
 
-    if (errors) {
-      updateItem.error = {
-        field: errors.field,
-        error: errors.error,
-        status: 400,
-      };
-    } else if (item) {
-      item.title = xss(title);
-      item.isbn13 = xss(isbn13);
-      item.author = xss(author);
-      item.description = xss(description);
-      const cleanArray = item && Object.values(item);
-      await queryDb(UPDATE_BOOKS, cleanArray);
-      const updateTable = await select('books');
-      updateItem.item = updateTable.rows.find(i => i.id === parseInt(id, 10));
-    } else {
-      updateItem.error = {
-        error: `Book with id ${id} does note exist`,
-        status: 404,
-      };
-    }
-    return updateItem;
-  } catch (e) {
-    console.error(e);
-    updateItem.error = {
-      error: 'Database error occurred',
-      status: 400,
+  if (validatorErrors.length > 0) {
+    return {
+      success: false,
+      validatorErrors,
+      data: null,
     };
-    return updateItem;
+  } else if (item) {
+    item.title = xss(title);
+    item.isbn13 = xss(isbn13);
+    item.author = xss(author);
+    item.description = xss(description);
+    const cleanArray = item && Object.values(item);
+    await queryDb(UPDATE_BOOKS, cleanArray);
+    return {
+      success: true,
+      validatorErrors: [],
+      data: item,
+    };
   }
+  return {
+    success: false,
+    validatorErrors: [`Book with id ${id} does note exist`],
+    data: null,
+  };
 }
 
 // Finnur eina bók eftir id-inu hennar

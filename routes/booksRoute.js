@@ -32,28 +32,24 @@ async function postBook(req, res) {
     description = '',
     categoryid = '',
   } = req.body;
-  const info = {
+  const result = await addOne({
     title,
     isbn13,
     author,
     description,
     categoryid,
-  };
-  const { item, error } = await addOne(info);
+  });
 
-  try {
-    if (error) {
-      return res.status(error.status).json(error);
-    }
-    return res.status(201).json(item);
-  } catch (err) {
-    console.error('Error', err);
-    return err;
+  if (!result.success) {
+    return res.status(404).json(result.validatorErrors);
   }
+  return res.status(201).json(result.data);
 }
 
+
 async function getOne(req, res) {
-  const { id } = req.query;
+  const { id } = req.params;
+
 
   const { item, error } = await readOne(id);
 
@@ -65,6 +61,7 @@ async function getOne(req, res) {
 
 async function patchOne(req, res) {
   const { id } = req.params;
+
   const {
     title = '',
     isbn13 = '',
@@ -73,24 +70,19 @@ async function patchOne(req, res) {
     categoryid = '',
   } = req.body;
 
-  const info = {
+  const result = await update(id, {
     title,
     isbn13,
     author,
     description,
     categoryid,
-  };
+  });
 
-  try {
-    const { item, error } = await update(id, info);
-    if (error) {
-      return res.status(error.status).json(error);
-    }
-    return res.status(200).json(item);
-  } catch (e) {
-    console.error(e);
-    return e;
+
+  if (!result.success) {
+    return res.status(404).json(result.validatorErrors);
   }
+  return res.status(200).json(result.data);
 }
 
 router.get('/', catchErrors(getAll));

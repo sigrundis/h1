@@ -6,9 +6,9 @@ const router = express();
 router.use(express.urlencoded({ extended: true }));
 
 async function loginSuccess(req, res) {
-  return res.status(201).json({
+  return res.status(200).json({
     message: 'login success',
-    username: req.user.name,
+    name: req.user.name,
   });
 }
 

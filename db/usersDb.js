@@ -8,8 +8,6 @@ const INSERT_INTO_USERS =
 const FIND_USER_BY_USERNAME = 'SELECT * FROM users WHERE username = $1';
 const FIND_USER_BY_ID = 'SELECT * FROM users WHERE id = $1';
 const READ_ALL_USERS = 'SELECT * FROM users';
-const UPDATE_USERS = 'UPDATE users SET password = $2, name = $3 WHERE id = $1';
-
 // const INSERT_INTO_READBOOKS =
 //    'INSERT INTO readbooks(title, ISBN13, author, description, category)
 //    VALUES($1, $2, $3, $4, $5)
@@ -58,12 +56,13 @@ async function readAll() {
 
 async function validateNewUser({ username, password, name } = {}) {
   const user = await findByUsername(username);
+  const validationArray = [];
 
   if (user) {
-    return {
+    validationArray.push({
       field: 'username',
       error: 'Notendanafn er þegar skráð',
-    };
+    });
   }
 
   if (
@@ -71,10 +70,10 @@ async function validateNewUser({ username, password, name } = {}) {
       min: 3,
     })
   ) {
-    return {
+    validationArray.push({
       field: 'username',
       error: 'Notendanafn verður að vera amk 3 stafir',
-    };
+    });
   }
 
   if (
@@ -83,10 +82,10 @@ async function validateNewUser({ username, password, name } = {}) {
       min: 6,
     })
   ) {
-    return {
+    validationArray.push({
       field: 'username',
       error: 'Lykilorð verður að vera amk 6 stafir',
-    };
+    });
   }
 
   if (
@@ -94,40 +93,42 @@ async function validateNewUser({ username, password, name } = {}) {
       min: 1,
     })
   ) {
-    return {
+    validationArray.push({
       field: 'name',
       error: 'Nafn má ekki vera tómt',
-    };
+    });
   }
 
-  return null;
+  return validationArray;
 }
 
 async function validateUpdatedUser({ password, name } = {}) {
+  const validationArray = [];
   if (
-    typeof password !== 'string' ||
+    typeof password === 'string' &&
     !validator.isByteLength(password, {
       min: 6,
     })
   ) {
-    return {
+    validationArray.push({
       field: 'username',
       error: 'Lykilorð verður að vera amk 6 stafir',
-    };
+    });
   }
 
   if (
+    typeof name === 'string' &&
     !validator.isByteLength(name, {
       min: 1,
     })
   ) {
-    return {
+    validationArray.push({
       field: 'name',
       error: 'Nafn má ekki vera tómt',
-    };
+    });
   }
 
-  return null;
+  return validationArray;
 }
 
 async function createUser({
@@ -140,22 +141,19 @@ async function createUser({
     password,
     name,
   };
-  const validationMessage = await validateNewUser(user);
-  if (validationMessage) {
+  const validation = await validateNewUser(user);
+  if (validation.length > 0) {
     return {
       success: false,
-      validation: validationMessage,
+      validation,
       data: null,
     };
   }
   const hashedPassword = await bcrypt.hash(password, 11);
   user.password = hashedPassword;
   const cleanArray = objToCleanArray(user);
-  await queryDb(INSERT_INTO_USERS, cleanArray);
-  // To get the id of the new user.
-  const updatedTable = await select().catch(e => console.error(e));
-  const newUser = updatedTable.rows.slice(-1).pop();
-  const { id } = newUser;
+  const result = await queryDb(INSERT_INTO_USERS, cleanArray);
+  const { id } = result.rows[0];
   return {
     success: true,
     validation: [],
@@ -168,7 +166,6 @@ async function createUser({
 }
 
 async function update({ id, password, name } = {}) {
-  const user = { id, password, name };
   const userToUpdate = await findById(id);
   if (!userToUpdate) {
     return {
@@ -177,29 +174,37 @@ async function update({ id, password, name } = {}) {
       data: null,
     };
   }
-  const validationMessage = await validateUpdatedUser({ password, name });
-  if (validationMessage) {
+  const validation = await validateUpdatedUser({ password, name });
+  if (validation.length > 0) {
     return {
       success: false,
-      validationMessage,
+      validation,
       data: null,
     };
   }
-  const hashedPassword = await bcrypt.hash(password, 11);
-  user.password = hashedPassword;
-  const cleanArray = objToCleanArray(user);
-  await queryDb(UPDATE_USERS, cleanArray);
-  const updatedUser = await findById(id);
-  const { username, imgurl } = updatedUser;
+  let insert = '';
+  const values = [id];
+  if (password) {
+    const hashedPassword = await bcrypt.hash(password, 11);
+    insert += 'password = $2';
+    values.push(xss(hashedPassword));
+  }
+  if (name) {
+    if (values.length > 1) {
+      insert += ', name = $3 ';
+    } else {
+      insert += 'name = $2 ';
+    }
+    values.push(xss(name));
+  }
+  const query = `UPDATE users SET ${insert} WHERE id = $1 RETURNING *`;
+  const result = await queryDb(query, values);
+  const updatedUser = result.rows[0];
+  delete updatedUser.password;
   return {
     success: true,
     validation: [],
-    data: {
-      id,
-      username,
-      name,
-      imgurl,
-    },
+    data: updatedUser,
   };
 }
 

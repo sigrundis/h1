@@ -18,11 +18,11 @@ function authenticate(app) {
   function strat(username, password, done) {
     users
       .findByUsername(username)
-      .then((user) => {
+      .then(async (user) => {
         if (!user) {
           return false;
         }
-        const result = users.comparePasswords(password, user.password);
+        const result = await users.comparePasswords(password, user.password);
         if (result) {
           return user;
         }

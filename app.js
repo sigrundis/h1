@@ -4,7 +4,7 @@ const register = require('./routes/registerRoute');
 const login = require('./routes/loginRoute');
 const users = require('./routes/usersRoute');
 // const books = require('./routes/booksRoute');
-// const categories = require('./routes/categoriesRoute');
+const categories = require('./routes/categoriesRoute');
 const authenticate = require('./middlewares/authenticate');
 
 const app = express();
@@ -18,8 +18,8 @@ authenticate(app);
 app.use('/register', register);
 app.use('/login', login);
 app.use('/users', users);
+app.use('/categories', categories);
 // app.use('/books', books);
-// app.use('/categories', categories);
 
 function notFoundHandler(req, res, next) { // eslint-disable-line
   res.status(404).json({ error: 'Not found' });

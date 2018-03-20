@@ -187,7 +187,7 @@ async function findAll(search, offset = 0, limit = 10) {
   try {
     if (!search) {
       const query = `SELECT * FROM books ORDER BY id OFFSET ${offset} LIMIT ${limit}`;
-      const rows = await pagingSelect('books',[], search, query, offset, limit);
+      const rows = await pagingSelect('books', [], search, query, offset, limit);
 
       return rows;
     }
@@ -201,7 +201,7 @@ async function findAll(search, offset = 0, limit = 10) {
       return info;
     }
 
-    values = [xss(search)];
+    const values = [xss(search)];
 
     const queryAll = `SELECT * FROM books WHERE to_tsvector('english', title) @@ to_tsquery('english', $1) ORDER BY id OFFSET ${offset} LIMIT ${limit}`;
     const result = await pagingSelect('books', values, search, queryAll, offset, limit);

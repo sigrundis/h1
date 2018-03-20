@@ -94,18 +94,18 @@ router.use((req, res, next) => {
 
 async function uploadLoggedInUsersImage(req, res, next) {
   const { file: { path } = {} } = req;
-  if (!path) {
-    return res.json({ error: 'Gat ekki lesið mynd' });
-  }
-  let upload = null;
-  try {
-    upload = await cloudinary.v2.uploader.upload(path);
-  } catch (error) {
-    console.error('Unable to upload file to cloudinary:', path);
-    return next(error);
-  }
-  const { secure_url } = upload; // eslint-disable-line
   if (req.user) {
+    if (!path) {
+      return res.json({ error: 'Gat ekki lesið mynd' });
+    }
+    let upload = null;
+    try {
+      upload = await cloudinary.v2.uploader.upload(path);
+    } catch (error) {
+      console.error('Unable to upload file to cloudinary:', path);
+      return next(error);
+    }
+  const { secure_url } = upload; // eslint-disable-line
     const { id } = req.user;
     const result = await updateImage({ id, imgurl: secure_url });
     if (!result.success) {

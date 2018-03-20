@@ -2,6 +2,8 @@ const { queryDb } = require('./db');
 
 const validator = require('validator');
 
+const { pagingSelect } = require('../paging');
+
 const xss = require('xss');
 
 const INSERT_INTO_BOOKS =
@@ -31,15 +33,6 @@ async function create(title, ISBN13, category, author = null, description = null
 // Vinnur úr beiðnum og sendir þær áfram á gagnagrunninn
 async function select(tablename) {
   const query = `SELECT * FROM ${tablename}`;
-
-  const result = await queryDb(query);
-
-  return result;
-}
-
-// Vinnur úr beiðni með tilteknum leitarstreng
-async function findBooks(search) {
-  const query = `SELECT * FROM books WHERE title LIKE '%${search}%'`;
 
   const result = await queryDb(query);
 
@@ -188,15 +181,17 @@ async function addOne({
 }
 
 // Finnur allar bækur eða bækur sem uppfylla viðeigandi leitarstreng
-async function findAll(search) {
+async function findAll(search, offset = 0, limit = 10) {
   const info = {};
-  const table = await select('books');
 
   try {
     if (!search) {
-      info.data = table.rows;
-      return info;
+      const query = `SELECT * FROM books ORDER BY id OFFSET ${offset} LIMIT ${limit}`;
+      const rows = await pagingSelect('books', search, query, offset, limit);
+
+      return rows;
     }
+
     const searchClean = search.replace(/\s/g, '');
     if (searchClean.length === 0) {
       info.error = {
@@ -207,23 +202,19 @@ async function findAll(search) {
     }
 
     const values = xss(search);
-    const result = await findBooks(values);
 
-    if (result.rows.length === 0) {
-      info.error = {
-        error: 'No books matching the query',
-        status: 404,
-      };
-    }
-    info.data = result.rows;
-    return info;
+    const queryAll = `SELECT * FROM books WHERE to_tsvector('english', title) @@ to_tsquery('english', '${values}') ORDER BY id OFFSET ${offset} LIMIT ${limit}`;
+    const result = await pagingSelect('books', search, queryAll, offset, limit);
+
+    return await result;
   } catch (e) {
+    console.error(e);
     info.error = {
       error: 'Database error has occurred',
       status: 400,
     };
     return info;
-  } 
+  }
 }
 
 // Uppfærir bók

@@ -14,9 +14,9 @@ const {
 } = require('../db/booksDb');
 
 async function getAll(req, res) {
-  const { search } = req.query;
+  const { search, offset = 0, limit = 10 } = req.query;
 
-  const { data, error } = await findAll(search);
+  const { data, error } = await findAll(search, offset, limit);
 
   if (error) {
     return res.status(error.status).json(error);

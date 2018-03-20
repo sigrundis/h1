@@ -2,7 +2,8 @@ const { Client } = require('pg');
 
 const connectionString = process.env.DATABASE_URL;
 
-async function pagingSelect(tablename, search, query, offset = 0, limit = 10) {
+async function pagingSelect(tablename, values = [], search, query, offset = 0, limit = 10) {
+  console.log('Query', query);
   const info = {};
   const client = new Client({
     connectionString,
@@ -10,7 +11,7 @@ async function pagingSelect(tablename, search, query, offset = 0, limit = 10) {
   await client.connect();
 
   try {
-    const res = await client.query(query);
+    const res = await client.query(query, values);
     info.data = {
       limit,
       offset,

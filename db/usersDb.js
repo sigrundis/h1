@@ -8,6 +8,7 @@ const INSERT_INTO_USERS =
 const FIND_USER_BY_USERNAME = 'SELECT * FROM users WHERE username = $1';
 const FIND_USER_BY_ID = 'SELECT * FROM users WHERE id = $1';
 const READ_ALL_USERS = 'SELECT * FROM users';
+const UPDATE_USER_IMGURL = 'UPDATE users SET imgurl = $2 WHERE id = $1 RETURNING *';
 // const INSERT_INTO_READBOOKS =
 //    'INSERT INTO readbooks(title, ISBN13, author, description, category)
 //    VALUES($1, $2, $3, $4, $5)
@@ -208,6 +209,25 @@ async function update({ id, password, name } = {}) {
   };
 }
 
+async function updateImage({ id, imgurl } = {}) {
+  const userToUpdate = await findById(id);
+  if (!userToUpdate) {
+    return {
+      success: false,
+      validation: [{ error: `User with id: ${id} does not exist.` }],
+      data: null,
+    };
+  }
+  const result = await queryDb(UPDATE_USER_IMGURL, [id, xss(imgurl)]);
+  const updatedUser = result.rows[0];
+  delete updatedUser.password;
+  return {
+    success: true,
+    validation: [],
+    data: updatedUser,
+  };
+}
+
 module.exports = {
   select,
   comparePasswords,
@@ -216,4 +236,5 @@ module.exports = {
   createUser,
   readAll,
   update,
+  updateImage,
 };

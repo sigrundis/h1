@@ -63,14 +63,12 @@ async function errorCheck(note) {
     validationArray.push({
       field: 'title',
       error: 'Title must be a string of at least length 1',
-      status: 400,
     });
   }
   if (!note.title.replace(/\s/g, '').length) {
     validationArray.push({
       field: 'title',
       error: 'Title can not be empty ',
-      status: 400,
     });
   }
   let titleFromDB;
@@ -90,14 +88,12 @@ async function errorCheck(note) {
     validationArray.push({
       field: 'isbn13',
       error: 'isbn13 must be an integer',
-      status: 400,
     });
   }
   if (note.isbn13.length !== 13) {
     validationArray.push({
       field: 'isbn13',
       error: 'isbn13 must be an integer of length 13',
-      status: 400,
     });
   }
   let ISBN13FromDb;
@@ -119,7 +115,6 @@ async function errorCheck(note) {
     validationArray.push({
       field: 'categoryid',
       error: 'categoryid must be defined',
-      status: 400,
     });
   }
   return validationArray;
@@ -226,7 +221,22 @@ async function update(id, {
 
   const table = await select('books');
   const item = table.rows.find(i => i.id === parseInt(id, 10));
-  const validatorErrors = await errorCheck(info);
+
+  let validatorErrors = [];
+
+  validatorErrors.push({
+    field: 'id',
+    error: `Book with id ${id} does note exist`,
+  });
+
+  if (!item) {
+    return {
+      success: false,
+      validatorErrors,
+      data: null,
+    };
+  }
+  validatorErrors = await errorCheck(info);
 
   if (validatorErrors.length > 0) {
     return {
@@ -234,23 +244,17 @@ async function update(id, {
       validatorErrors,
       data: null,
     };
-  } else if (item) {
-    item.title = xss(title);
-    item.isbn13 = xss(isbn13);
-    item.author = xss(author);
-    item.description = xss(description);
-    const cleanArray = item && Object.values(item);
-    await queryDb(UPDATE_BOOKS, cleanArray);
-    return {
-      success: true,
-      validatorErrors: [],
-      data: item,
-    };
   }
+  item.title = xss(title);
+  item.isbn13 = xss(isbn13);
+  item.author = xss(author);
+  item.description = xss(description);
+  const cleanArray = item && Object.values(item);
+  await queryDb(UPDATE_BOOKS, cleanArray);
   return {
-    success: false,
-    validatorErrors: [`Book with id ${id} does note exist`],
-    data: null,
+    success: true,
+    validatorErrors: [],
+    data: item,
   };
 }
 

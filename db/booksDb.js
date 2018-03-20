@@ -1,13 +1,10 @@
 const { queryDb } = require('./db');
-
 const validator = require('validator');
-
 const { pagingSelect } = require('../paging');
-
 const xss = require('xss');
 
 const INSERT_INTO_BOOKS =
-  'INSERT INTO books(id, title, ISBN13, author, description, categoryId) VALUES($1, $2, $3, $4, $5, $6) RETURNING *';
+  'INSERT INTO books(title, ISBN13, author, description, categoryId)VALUES($1, $2, $3, $4, $5) RETURNING *';
 const UPDATE_BOOKS =
   'UPDATE books SET title = $2, ISBN13 = $3, author = $4, description = $5, categoryId = $6  WHERE id = $1';
 const UNIQUE_TITLE_UPDATE =
@@ -18,6 +15,12 @@ const UNIQUE_TITLE =
   'SELECT * FROM books WHERE title = $1';
 const UNIQUE_ISBN13 =
   'SELECT * FROM books WHERE ISBN13 = $1';
+
+function objToCleanArray(object) {
+  let array = object && Object.values(object);
+  array = array.map(a => xss(a));
+  return array;
+}
 
 // Bætir bókum í gagnagrunninn
 async function create(title, ISBN13, category, author = null, description = null) {
@@ -59,13 +62,13 @@ async function checkUnique(queryCheck, id, valueCheck) {
 // Athugar hvort það séu einhverjar villur í þeim gögnum sem sett eru inn
 async function errorCheck(note) {
   const validationArray = [];
-  if (!validator.isByteLength(note.title, { min: 1 })) {
+  if (!validator.isByteLength(note[1], { min: 1 })) {
     validationArray.push({
       field: 'title',
       error: 'Title must be a string of at least length 1',
     });
   }
-  if (!note.title.replace(/\s/g, '').length) {
+  if (note[1].replace(/\s/g, '').length === 0) {
     validationArray.push({
       field: 'title',
       error: 'Title can not be empty ',
@@ -73,24 +76,25 @@ async function errorCheck(note) {
   }
   let titleFromDB;
 
-  if (note.id) {
-    titleFromDB = await checkUnique(UNIQUE_TITLE_UPDATE, note.id, xss(note.title));
+  if (note[0].length !== 0) {
+    titleFromDB = await checkUnique(UNIQUE_TITLE_UPDATE, note[0], note[1]);
   } else {
-    titleFromDB = await checkUnique(UNIQUE_TITLE, note.id, xss(note.title));
+    titleFromDB = await checkUnique(UNIQUE_TITLE, '', note[1]);
   }
+
   if (titleFromDB.data) {
     validationArray.push({
       field: 'title',
       error: 'Title already exists',
     });
   }
-  if (!validator.isInt(note.isbn13)) {
+  if (!validator.isInt(note[2])) {
     validationArray.push({
       field: 'isbn13',
       error: 'isbn13 must be an integer',
     });
   }
-  if (note.isbn13.length !== 13) {
+  if (note[2].length !== 13) {
     validationArray.push({
       field: 'isbn13',
       error: 'isbn13 must be an integer of length 13',
@@ -98,10 +102,10 @@ async function errorCheck(note) {
   }
   let ISBN13FromDb;
 
-  if (note.id) {
-    ISBN13FromDb = await checkUnique(UNIQUE_ISBN13_UPDATE, note.id, xss(note.isbn13));
+  if (note[0].length !== 0) {
+    ISBN13FromDb = await checkUnique(UNIQUE_ISBN13_UPDATE, note[0], note[2]);
   } else {
-    ISBN13FromDb = await checkUnique(UNIQUE_ISBN13, note.id, xss(note.isbn13));
+    ISBN13FromDb = await checkUnique(UNIQUE_ISBN13, '', note[2]);
   }
 
   if (ISBN13FromDb.data) {
@@ -110,8 +114,7 @@ async function errorCheck(note) {
       error: 'isbn13 must be unique',
     });
   }
-
-  if (!note.categoryid) {
+  if (note[5].length === 0) {
     validationArray.push({
       field: 'categoryid',
       error: 'categoryid must be defined',
@@ -136,32 +139,32 @@ async function addOne({
     categoryid,
   };
 
-  const validatorErrors = await errorCheck(info);
-  if (validatorErrors.length > 0) {
+
+  const values = ['', xss(title), xss(isbn13), xss(author), xss(description), xss(categoryid)];
+
+  const validation = await errorCheck(values);
+  if (validation.length > 0) {
     return {
       success: false,
-      validatorErrors,
+      validation,
       data: null,
     };
   }
-  const table = await select('books');
-  const nextId = table.rows.map(i => i.id).reduce((a, b) => (a > b ? a : b + 1), 1);
 
-  const item = {
-    id: nextId,
-    title: xss(title),
-    isbn13: xss(isbn13),
-    author: xss(author),
-    description: xss(description),
-    categoryid: xss(categoryid),
-  };
-
-  const cleanArray = item && Object.values(item);
-  await queryDb(INSERT_INTO_BOOKS, cleanArray);
+  const cleanArray = objToCleanArray(info);
+  const result = await queryDb(INSERT_INTO_BOOKS, cleanArray);
+  const { id } = result.rows[0];
   return {
     success: true,
     valdatorErrors: [],
-    data: item,
+    data: {
+      id,
+      title,
+      isbn13,
+      author,
+      description,
+      categoryid,
+    },
   };
 }
 
@@ -188,7 +191,7 @@ async function findAll(search, offset = 0, limit = 10) {
 
     const values = [xss(search)];
 
-    const queryAll = `SELECT * FROM books WHERE to_tsvector('english', title) @@ to_tsquery('english', $1) ORDER BY id OFFSET ${offset} LIMIT ${limit}`;
+    const queryAll = `SELECT * FROM books WHERE to_tsvector(title) @@ to_tsquery($1) ORDER BY id OFFSET ${offset} LIMIT ${limit}`;
     const result = await pagingSelect('books', values, search, queryAll, offset, limit);
 
     return await result;
@@ -219,42 +222,47 @@ async function update(id, {
     categoryid,
   };
 
+  const values = ['', xss(title), xss(isbn13), xss(author), xss(description), xss(categoryid)];
+
   const table = await select('books');
   const item = table.rows.find(i => i.id === parseInt(id, 10));
 
-  let validatorErrors = [];
-
-  validatorErrors.push({
-    field: 'id',
-    error: `Book with id ${id} does note exist`,
-  });
+  let validation = [];
 
   if (!item) {
+    validation.push({
+      field: 'id',
+      error: `Book with id ${id} does note exist`,
+    });
     return {
       success: false,
-      validatorErrors,
+      validation,
       data: null,
     };
   }
-  validatorErrors = await errorCheck(info);
+  validation = await errorCheck(values);
 
-  if (validatorErrors.length > 0) {
+  if (validation.length > 0) {
     return {
       success: false,
-      validatorErrors,
+      validation,
       data: null,
     };
   }
-  item.title = xss(title);
-  item.isbn13 = xss(isbn13);
-  item.author = xss(author);
-  item.description = xss(description);
-  const cleanArray = item && Object.values(item);
+
+  const cleanArray = objToCleanArray(info);
   await queryDb(UPDATE_BOOKS, cleanArray);
   return {
     success: true,
-    validatorErrors: [],
-    data: item,
+    valdatorErrors: [],
+    data: {
+      id,
+      title,
+      isbn13,
+      author,
+      description,
+      categoryid,
+    },
   };
 }
 

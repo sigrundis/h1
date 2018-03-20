@@ -26,11 +26,11 @@ async function getAll(req, res) {
 
 async function postBook(req, res) {
   const {
-    title = '',
-    isbn13 = '',
-    author = '',
-    description = '',
-    categoryid = '',
+    title,
+    isbn13,
+    author,
+    description,
+    categoryid,
   } = req.body;
   const result = await addOne({
     title,
@@ -41,7 +41,7 @@ async function postBook(req, res) {
   });
 
   if (!result.success) {
-    return res.status(404).json(result.validatorErrors);
+    return res.status(404).json(result.validation);
   }
   return res.status(201).json(result.data);
 }
@@ -63,11 +63,11 @@ async function patchOne(req, res) {
   const { id } = req.params;
 
   const {
-    title = '',
-    isbn13 = '',
-    author = '',
-    description = '',
-    categoryid = '',
+    title ,
+    isbn13 ,
+    author,
+    description,
+    categoryid,
   } = req.body;
 
   const result = await update(id, {
@@ -80,7 +80,7 @@ async function patchOne(req, res) {
 
 
   if (!result.success) {
-    return res.status(404).json(result.validatorErrors);
+    return res.status(404).json(result.validation);
   }
   return res.status(200).json(result.data);
 }

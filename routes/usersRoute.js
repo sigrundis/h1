@@ -1,12 +1,6 @@
 const express = require('express');
 const cloudinary = require('cloudinary');
 const multer = require('multer');
-const {
-  readAll,
-  findById,
-  update,
-  updateImage,
-} = require('../db/usersDb');
 
 const uploads = multer({ dest: './temp' });
 
@@ -25,6 +19,13 @@ cloudinary.config({
   api_key: CLOUDINARY_API_KEY,
   api_secret: CLOUDINARY_API_SECRET,
 });
+const {
+  readAll,
+  findById,
+  update,
+  updateImage,
+  findBooksByUserId,
+} = require('../db/usersDb');
 
 const router = express.Router();
 
@@ -55,11 +56,7 @@ async function getUserById(req, res) {
   const { id } = req.params;
   const user = await findById(id);
   if (user) {
-    const {
-      username,
-      name,
-      imgurl,
-    } = user;
+    const { username, name, imgurl } = user;
     return res.json({
       id,
       username,
@@ -94,6 +91,19 @@ async function updateLoggedInUser(req, res) {
   return res.status(404).json({ error: 'You are not logged in' });
 }
 
+async function getLoggedInUserBooks(req, res) {
+  if (req.user) {
+    const { id } = req.user;
+    const result = findBooksByUserId({ id });
+    return res.json(result);
+  }
+  return res.status(401).json({ error: 'You are not logged in' });
+}
+
+async function setBookReadForUser(req, res) {
+  const { bookId, grade, review } = req.body;
+}
+
 router.use((req, res, next) => {
   if (req.isAuthenticated()) {
     res.locals.user = req.user;
@@ -114,7 +124,7 @@ async function uploadLoggedInUsersImage(req, res, next) {
       console.error('Unable to upload file to cloudinary:', path);
       return next(error);
     }
-  const { secure_url } = upload; // eslint-disable-line
+    const { secure_url } = upload; // eslint-disable-line
     const { id } = req.user;
     const result = await updateImage({ id, imgurl: secure_url });
     if (!result.success) {
@@ -131,6 +141,12 @@ router.get('/', catchErrors(readAllUsers));
 router.get('/me', catchErrors(getLoggedInUser));
 router.patch('/me', catchErrors(updateLoggedInUser));
 router.get('/:id', catchErrors(getUserById));
-router.post('/me/profile', uploads.single('image'), catchErrors(uploadLoggedInUsersImage));
+router.post(
+  '/me/profile',
+  uploads.single('image'),
+  catchErrors(uploadLoggedInUsersImage)
+);
+router.get('/me/read', catchErrors(getLoggedInUserBooks));
+router.post('/me/read', catchErrors(setBookReadForUser));
 
 module.exports = router;

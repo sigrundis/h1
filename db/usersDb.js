@@ -9,16 +9,18 @@ const INSERT_INTO_USERS =
 const FIND_USER_BY_USERNAME = 'SELECT * FROM users WHERE username = $1';
 const FIND_USER_BY_ID = 'SELECT * FROM users WHERE id = $1';
 const READ_ALL_USERS = 'SELECT * FROM users';
-const UPDATE_USER_IMGURL = 'UPDATE users SET imgurl = $2 WHERE id = $1 RETURNING *';
+const UPDATE_USER_IMGURL =
+  'UPDATE users SET imgurl = $2 WHERE id = $1 RETURNING *';
 // const INSERT_INTO_READBOOKS =
 //    'INSERT INTO readbooks(title, ISBN13, author, description, category)
 //    VALUES($1, $2, $3, $4, $5)
 //    RETURNING *';
 // const DELETE_ROW_IN_READBOOKS = 'DELETE FROM readbooks WHERE  id = $1';
+const READ_BOOKS_BY_USER_ID = 'SELECT * FROM readbooks WHERE userId = $1';
 
 function objToCleanArray(object) {
   let array = object && Object.values(object);
-  array = array.map(a => xss(a));
+  array = array.map((a) => xss(a));
   return array;
 }
 
@@ -51,7 +53,9 @@ async function findById(id) {
 async function readAll(offset, limit) {
   const cleanOffset = xss(offset);
   const cleanLimit = xss(limit);
-  const query = `SELECT * FROM users ORDER BY id OFFSET ${Number(cleanOffset)} LIMIT ${Number(cleanLimit)}`;
+  const query = `SELECT * FROM users ORDER BY id OFFSET ${Number(
+    cleanOffset
+  )} LIMIT ${Number(cleanLimit)}`;
 
   const result = await pagingSelect('users', [], '', query, offset, limit);
 
@@ -138,11 +142,7 @@ async function validateUpdatedUser({ password, name } = {}) {
   return validationArray;
 }
 
-async function createUser({
-  username,
-  password,
-  name,
-} = {}) {
+async function createUser({ username, password, name } = {}) {
   const user = {
     username,
     password,
@@ -234,6 +234,32 @@ async function updateImage({ id, imgurl } = {}) {
   };
 }
 
+async function findBooksByUserId({ id } = {}) {
+  const query = READ_BOOKS_BY_USER_ID;
+
+  const values = [id];
+
+  const result = await queryDb(query, values);
+
+  return {
+    success: true,
+    data: result.rows,
+  };
+}
+
+async function tempBookFind({ id } = {}) {
+  const query = 'SELECT * FROM books WHERE id = $1';
+
+  const values = [id];
+
+  const result = await queryDb(query, values);
+
+  return {
+    success: true,
+    data: result.rows[0],
+  };
+}
+
 module.exports = {
   select,
   comparePasswords,
@@ -243,4 +269,6 @@ module.exports = {
   readAll,
   update,
   updateImage,
+  findBooksByUserId,
+  tempBookFind,
 };

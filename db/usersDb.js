@@ -28,11 +28,11 @@ const DELETE_READ_BOOK = 'DELETE FROM readbooks where id = $1 RETURNING *';
 
 function objToCleanArray(object) {
   let array = object && Object.values(object);
-  array = array.map((a) => xss(a));
+  array = array.map(a => xss(a));
   return array;
 }
 
-const xssArray = (array) => array.map((i) => xss(i));
+const xssArray = array => array.map(i => xss(i));
 
 async function select() {
   const result = await queryDb(READ_ALL_USERS);
@@ -63,9 +63,7 @@ async function findById(id) {
 async function readAll(offset, limit) {
   const cleanOffset = xss(offset);
   const cleanLimit = xss(limit);
-  const query = `SELECT * FROM users ORDER BY id OFFSET ${Number(
-    cleanOffset
-  )} LIMIT ${Number(cleanLimit)}`;
+  const query = `SELECT * FROM users ORDER BY id OFFSET ${Number(cleanOffset)} LIMIT ${Number(cleanLimit)}`;
 
   const result = await pagingSelect('users', [], '', query, offset, limit);
 
@@ -84,7 +82,6 @@ async function findReadBookById(id) {
 }
 
 async function validateNewUser({ username, password, name } = {}) {
-  console.log('username', username);
   const user = await findByUsername(username);
   const validationArray = [];
 
@@ -313,7 +310,12 @@ async function getReadBookByBook({ id, bookId } = {}) {
   };
 }
 
-async function createReadBook({ id, bookId, grade, review } = {}) {
+async function createReadBook({
+  id,
+  bookId,
+  grade,
+  review,
+} = {}) {
   const validation = validateReadBook({ grade, review });
   if (validation.length > 0) {
     return {

@@ -110,9 +110,9 @@ async function getReadBooksByUserId(req, res) {
   const { id } = req.params;
 
   // Queries behave badly if id is not parsable to string
-  if (Number.isNaN(parseInt(id, 10)))
+  if (Number.isNaN(parseInt(id, 10))) {
     return res.status(404).json({ error: 'User not found' });
-
+  }
   const user = await findById(id);
 
   // Check if user exists
@@ -125,7 +125,6 @@ async function getReadBooksByUserId(req, res) {
 
 async function setBookReadForUser(req, res) {
   const { bookId, grade, review = '' } = req.body;
-
   // Logged in
   if (req.user) {
     const { id } = req.user;
@@ -177,7 +176,7 @@ async function updateBookReadForUser(req, res) {
         grade,
         review,
       },
-      existingReview.data
+      existingReview.data,
     );
 
     if (!result.success) {
@@ -194,9 +193,9 @@ async function deleteBookReadForUser(req, res) {
 
   if (req.user) {
     // Queries behave badly if id is not parsable to string
-    if (Number.isNaN(parseInt(id, 10)))
+    if (Number.isNaN(parseInt(id, 10))) {
       return res.status(404).json({ error: 'Book not found' });
-
+    }
     const readBook = await findReadBookById(id);
 
     // Check if user exists
@@ -249,7 +248,7 @@ router.get('/:id', catchErrors(getUserById));
 router.post(
   '/me/profile',
   uploads.single('image'),
-  catchErrors(uploadLoggedInUsersImage)
+  catchErrors(uploadLoggedInUsersImage),
 );
 router.get('/me/read', catchErrors(getLoggedInUserReadBooks));
 router.post('/me/read', catchErrors(setBookReadForUser));

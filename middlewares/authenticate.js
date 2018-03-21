@@ -1,63 +1,51 @@
-const session = require('express-session');
 const passport = require('passport');
-const cookieParser = require('cookie-parser');
-const { Strategy } = require('passport-local');
+const { Strategy, ExtractJwt } = require('passport-jwt');
 const users = require('../db/usersDb');
 
-const sessionSecret = process.env.SESSION_SECRET;
+const {
+  JWT_SECRET: jwtSecret,
+} = process.env;
 
-function authenticate(app) {
-  app.use(cookieParser());
+// Wraps the application with auth layer
+function authenticateApp(app) {
+  const jwtOptions = {
+    jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
+    secretOrKey: jwtSecret,
+  };
 
-  app.use(session({
-    secret: sessionSecret,
-    resave: false,
-    saveUninitialized: false,
-  }));
+  // The auth strat
+  async function strat(data, next) {
+    const user = await users.findById(data.id);
 
-  function strat(username, password, done) {
-    users
-      .findByUsername(username)
-      .then(async (user) => {
-        if (!user) {
-          return false;
-        }
-        const result = await users.comparePasswords(password, user.password);
-        if (result) {
-          return user;
-        }
-        return false;
-      })
-      .then(res => done(null, res))
-      .catch((err) => {
-        done(err);
-      });
+    if (user) {
+      next(null, user);
+    } else {
+      next(null, false);
+    }
   }
 
-  passport.use(new Strategy(strat));
-
-  passport.serializeUser((user, done) => {
-    done(null, user.id);
-  });
-
-  passport.deserializeUser((id, done) => {
-    users
-      .findById(id)
-      .then(user => done(null, user))
-      .catch(err => done(err));
-  });
+  passport.use(new Strategy(jwtOptions, strat));
 
   app.use(passport.initialize());
-  app.use(passport.session());
 
+  // Adds user to req.user if logged in
   function consistentLogin(req, res, next) {
-    if (req.isAuthenticated()) {
-      // Now we can use the user in veiws.
-      res.locals.user = req.user;
-    }
-    next();
+    // Check the token
+    passport.authenticate(
+      'jwt',
+      { session: false },
+      (err, user) => {
+        if (err) {
+          return next(err);
+        }
+        // If valid token was found add authenticated user to res
+        if (user) req.user = user;
+
+        return next();
+      },
+    )(req, res, next);
   }
   app.use(consistentLogin);
 }
 
-module.exports = authenticate;
+module.exports = authenticateApp;

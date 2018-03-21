@@ -84,6 +84,7 @@ async function findReadBookById(id) {
 }
 
 async function validateNewUser({ username, password, name } = {}) {
+  console.log('username', username);
   const user = await findByUsername(username);
   const validationArray = [];
 

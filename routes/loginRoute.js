@@ -7,7 +7,7 @@ const router = express();
 
 const {
   JWT_SECRET: jwtSecret,
-  TOKEN_LIFETIME: tokenLifetime = 20000,
+  TOKEN_LIFETIME: tokenLifetime = 86400,
 } = process.env;
 
 const jwtOptions = {
@@ -27,10 +27,10 @@ async function login(req, res) {
   }
 
   const passwordIsCorrect = await users.comparePasswords(password, user.password);
-  console.log(tokenLifetime)
+
   if (passwordIsCorrect) {
     const payload = { id: user.id };
-    const tokenOptions = { expiresIn: 50000000 };
+    const tokenOptions = { expiresIn: tokenLifetime };
     const token = jwt.sign(payload, jwtOptions.secretOrKey, tokenOptions);
     return res.json({ token });
   }

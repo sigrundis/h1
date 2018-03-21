@@ -1,11 +1,12 @@
 const validator = require('validator');
 const xss = require('xss');
 const { queryDb } = require('./db');
+const { pagingSelect } = require('../paging');
 
 // Constants
 const INSERT_INTO_CATEGORIES = 'INSERT INTO categories(title) VALUES ($1) RETURNING *';
 // const UPDATE_CATEGORIES = 'UPDATE categories SET title = $2  WHERE id = $1';
-const READ_ALL_CATEGORIES = 'SELECT * FROM categories';
+// const READ_ALL_CATEGORIES = 'SELECT * FROM categories';
 const READ_CATEGORY_BY_TITLE = 'SELECT * FROM categories WHERE title = $1';
 
 // Validation for category
@@ -77,14 +78,14 @@ async function create(title) {
   };
 }
 
-async function readAll() {
-  const query = READ_ALL_CATEGORIES;
+async function readAll(offset = 0, limit = 10) {
+  const query = `SELECT * FROM categories ORDER BY id OFFSET ${offset} LIMIT ${limit}`;
 
-  const result = await queryDb(query);
+  const result = await pagingSelect('categories', [], '', query, offset, limit);
 
   return {
     success: true,
-    data: result.rows,
+    data: result,
   };
 }
 

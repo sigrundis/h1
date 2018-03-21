@@ -1,6 +1,5 @@
 const { queryDb } = require('./db');
 const validator = require('validator');
-const { pagingSelect } = require('../paging');
 const xss = require('xss');
 
 const INSERT_INTO_BOOKS =
@@ -76,7 +75,7 @@ async function errorCheck(note) {
   }
   let titleFromDB;
 
-  if (note[0].length !== 0) {
+  if (note[0]) {
     titleFromDB = await checkUnique(UNIQUE_TITLE_UPDATE, note[0], note[1]);
   } else {
     titleFromDB = await checkUnique(UNIQUE_TITLE, '', note[1]);
@@ -102,7 +101,7 @@ async function errorCheck(note) {
   }
   let ISBN13FromDb;
 
-  if (note[0].length !== 0) {
+  if (note[0]) {
     ISBN13FromDb = await checkUnique(UNIQUE_ISBN13_UPDATE, note[0], note[2]);
   } else {
     ISBN13FromDb = await checkUnique(UNIQUE_ISBN13, '', note[2]);
@@ -174,10 +173,13 @@ async function findAll(search, offset = 0, limit = 10) {
   const cleanOffset = xss(offset);
   const cleanLimit = xss(limit);
 
+  let values;
+
   try {
     if (!search) {
-      const query = `SELECT * FROM books ORDER BY id OFFSET ${Number(cleanOffset)} LIMIT ${Number(cleanLimit)}`;
-      const rows = await pagingSelect('books', [], '', query, offset, limit);
+      values = [Number(cleanOffset), Number(cleanLimit)];
+      const query = 'SELECT * FROM books ORDER BY id OFFSET $1 LIMIT $2';
+      const rows = await queryDb(query, values, 'books', '');
 
       return rows;
     }
@@ -191,10 +193,10 @@ async function findAll(search, offset = 0, limit = 10) {
       return info;
     }
 
-    const values = [xss(search)];
+    values = [xss(search), Number(cleanOffset), Number(cleanLimit)];
 
-    const queryAll = `SELECT * FROM books WHERE to_tsvector(title) @@ to_tsquery($1) ORDER BY id OFFSET ${Number(cleanOffset)} LIMIT ${Number(cleanLimit)}`;
-    const result = await pagingSelect('books', values, search, queryAll, offset, limit);
+    const queryAll = 'SELECT * FROM books WHERE to_tsvector(title) @@ to_tsquery($1) ORDER BY id OFFSET $2 LIMIT $3';
+    const result = await queryDb(queryAll, values, 'books', search);
 
     return await result;
   } catch (e) {
@@ -224,7 +226,7 @@ async function update(id, {
     categoryid,
   };
 
-  const values = ['', xss(title), xss(isbn13), xss(author), xss(description), xss(categoryid)];
+  const values = [id, xss(title), xss(isbn13), xss(author), xss(description), xss(categoryid)];
 
   const table = await select('books');
   const item = table.rows.find(i => i.id === parseInt(id, 10));

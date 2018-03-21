@@ -1,21 +1,15 @@
 const bcrypt = require('bcrypt');
 const { queryDb } = require('./db');
 const validator = require('validator');
-const { pagingSelect } = require('../paging');
 const xss = require('xss'); // eslint-disable-line
 
 const INSERT_INTO_USERS =
   'INSERT INTO users(username, password, name)VALUES($1, $2, $3) RETURNING *';
 const FIND_USER_BY_USERNAME = 'SELECT * FROM users WHERE username = $1';
 const FIND_USER_BY_ID = 'SELECT * FROM users WHERE id = $1';
-const READ_ALL_USERS = 'SELECT * FROM users';
+const READ_ALL_USERS = 'SELECT * FROM users ORDER BY id OFFSET $1 LIMIT $2';
 const UPDATE_USER_IMGURL =
   'UPDATE users SET imgurl = $2 WHERE id = $1 RETURNING *';
-// const INSERT_INTO_READBOOKS =
-//    'INSERT INTO readbooks(title, ISBN13, author, description, category)
-//    VALUES($1, $2, $3, $4, $5)
-//    RETURNING *';
-// const DELETE_ROW_IN_READBOOKS = 'DELETE FROM readbooks WHERE  id = $1';
 const READ_BOOKS_BY_USER_ID_AND_BOOK_ID =
   'SELECT * FROM readbooks WHERE userId = $1 AND bookId = $2';
 const READ_BOOKS_BY_USER_ID = 'SELECT * FROM readbooks WHERE userId = $1';
@@ -35,7 +29,7 @@ function objToCleanArray(object) {
 const xssArray = array => array.map(i => xss(i));
 
 async function select() {
-  const result = await queryDb(READ_ALL_USERS);
+  const result = await queryDb(READ_ALL_USERS, []);
   return result;
 }
 
@@ -63,9 +57,9 @@ async function findById(id) {
 async function readAll(offset, limit) {
   const cleanOffset = xss(offset);
   const cleanLimit = xss(limit);
-  const query = `SELECT * FROM users ORDER BY id OFFSET ${Number(cleanOffset)} LIMIT ${Number(cleanLimit)}`;
+  const values = [Number(cleanOffset), Number(cleanLimit)];
 
-  const result = await pagingSelect('users', [], '', query, offset, limit);
+  const result = await queryDb(READ_ALL_USERS, values, 'users');
 
   return {
     success: true,

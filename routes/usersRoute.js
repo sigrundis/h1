@@ -1,5 +1,30 @@
 const express = require('express');
-const { readAll, findById, update } = require('../db/usersDb');
+const cloudinary = require('cloudinary');
+const multer = require('multer');
+const {
+  readAll,
+  findById,
+  update,
+  updateImage,
+} = require('../db/usersDb');
+
+const uploads = multer({ dest: './temp' });
+
+const {
+  CLOUDINARY_CLOUD,
+  CLOUDINARY_API_KEY,
+  CLOUDINARY_API_SECRET,
+} = process.env;
+
+if (!CLOUDINARY_CLOUD || !CLOUDINARY_API_KEY || !CLOUDINARY_API_SECRET) {
+  console.warn('Missing cloudinary config, uploading images will not work');
+}
+
+cloudinary.config({
+  cloud_name: CLOUDINARY_CLOUD,
+  api_key: CLOUDINARY_API_KEY,
+  api_secret: CLOUDINARY_API_SECRET,
+});
 
 const router = express.Router();
 
@@ -67,9 +92,36 @@ router.use((req, res, next) => {
   next();
 });
 
+async function uploadLoggedInUsersImage(req, res, next) {
+  const { file: { path } = {} } = req;
+  if (req.user) {
+    if (!path) {
+      return res.json({ error: 'Gat ekki lesið mynd' });
+    }
+    let upload = null;
+    try {
+      upload = await cloudinary.v2.uploader.upload(path);
+    } catch (error) {
+      console.error('Unable to upload file to cloudinary:', path);
+      return next(error);
+    }
+  const { secure_url } = upload; // eslint-disable-line
+    const { id } = req.user;
+    const result = await updateImage({ id, imgurl: secure_url });
+    if (!result.success) {
+      return res.json(result.validation);
+    }
+    const updatedUser = result.data;
+    updatedUser.imgurl = result.data.imgurl || '';
+    return res.json(updatedUser);
+  }
+  return res.status(404).json({ error: 'You are not logged in' });
+}
+
 router.get('/', catchErrors(readAllUsers));
 router.get('/me', catchErrors(getLoggedInUser));
 router.patch('/me', catchErrors(updateLoggedInUser));
 router.get('/:id', catchErrors(getUserById));
+router.post('/me/profile', uploads.single('image'), catchErrors(uploadLoggedInUsersImage));
 
 module.exports = router;

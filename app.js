@@ -5,7 +5,7 @@ const login = require('./routes/loginRoute');
 const users = require('./routes/usersRoute');
 const books = require('./routes/booksRoute');
 const categories = require('./routes/categoriesRoute');
-const authenticate = require('./middlewares/authenticate');
+const authenticateApp = require('./middlewares/authenticate');
 
 const app = express();
 const { PORT: port = 3000, HOST: host = '127.0.0.1' } = process.env;
@@ -13,7 +13,7 @@ const { PORT: port = 3000, HOST: host = '127.0.0.1' } = process.env;
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-authenticate(app);
+authenticateApp(app);
 
 app.use('/register', register);
 app.use('/login', login);

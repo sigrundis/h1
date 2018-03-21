@@ -24,7 +24,13 @@ const {
   findById,
   update,
   updateImage,
-  findBooksByUserId,
+  findReadBooksByUserId,
+  tempBookFind,
+  createReadBook,
+  getReadBookByBook,
+  updateReadBook,
+  findReadBookById,
+  deleteReadBookById,
 } = require('../db/usersDb');
 
 const router = express.Router();
@@ -91,17 +97,116 @@ async function updateLoggedInUser(req, res) {
   return res.status(404).json({ error: 'You are not logged in' });
 }
 
-async function getLoggedInUserBooks(req, res) {
+async function getLoggedInUserReadBooks(req, res) {
   if (req.user) {
     const { id } = req.user;
-    const result = findBooksByUserId({ id });
-    return res.json(result);
+    const result = await findReadBooksByUserId({ id });
+    return res.json(result.data);
   }
   return res.status(401).json({ error: 'You are not logged in' });
 }
 
+async function getReadBooksByUserId(req, res) {
+  const { id } = req.params;
+
+  // Queries behave badly if id is not parsable to string
+  if (Number.isNaN(parseInt(id, 10)))
+    return res.status(404).json({ error: 'User not found' });
+
+  const user = await findById(id);
+
+  // Check if user exists
+  if (user) {
+    const result = await findReadBooksByUserId({ id });
+    return res.json(result.data);
+  }
+  return res.status(404).json({ error: 'User not found' });
+}
+
 async function setBookReadForUser(req, res) {
+  const { bookId, grade, review = '' } = req.body;
+
+  // Logged in
+  if (req.user) {
+    const { id } = req.user;
+
+    // Check if book exists
+    const book = await tempBookFind({ bookId });
+    if (!book) {
+      return res.status(404).json({ error: 'Book not found!' });
+    }
+    // Check if review exists
+    const existingReview = await getReadBookByBook({ id, bookId });
+    if (existingReview.data) {
+      return res.status(405).json({ error: 'Review already exists.' });
+    }
+
+    const result = await createReadBook({
+      id,
+      bookId,
+      grade,
+      review,
+    });
+
+    if (!result.success) {
+      return res.json(result.validation);
+    }
+
+    return res.status(201).json(result.data);
+  }
+  return res.status(404).json({ error: 'You are not logged in' });
+}
+
+async function updateBookReadForUser(req, res) {
   const { bookId, grade, review } = req.body;
+
+  if (req.user) {
+    const { id } = req.user;
+
+    // Check if review exists
+    const existingReview = await getReadBookByBook({ id, bookId });
+    if (!existingReview.data) {
+      return res.status(404).json({ error: 'Review does not exist.' });
+    }
+
+    // Send the updated data along with the old data
+    const result = await updateReadBook(
+      {
+        id,
+        bookId,
+        grade,
+        review,
+      },
+      existingReview.data
+    );
+
+    if (!result.success) {
+      return res.json(result.validation);
+    }
+
+    return res.status(201).json(result.data);
+  }
+  return res.status(401).json({ error: 'You are not logged in' });
+}
+
+async function deleteBookReadForUser(req, res) {
+  const { id } = req.params;
+
+  if (req.user) {
+    // Queries behave badly if id is not parsable to string
+    if (Number.isNaN(parseInt(id, 10)))
+      return res.status(404).json({ error: 'Book not found' });
+
+    const readBook = await findReadBookById(id);
+
+    // Check if user exists
+    if (readBook) {
+      const result = await deleteReadBookById({ id });
+      return res.json(result.data);
+    }
+    return res.status(404).json({ error: 'Book not found' });
+  }
+  return res.status(401).json({ error: 'You are not logged in' });
 }
 
 router.use((req, res, next) => {
@@ -146,7 +251,10 @@ router.post(
   uploads.single('image'),
   catchErrors(uploadLoggedInUsersImage)
 );
-router.get('/me/read', catchErrors(getLoggedInUserBooks));
+router.get('/me/read', catchErrors(getLoggedInUserReadBooks));
 router.post('/me/read', catchErrors(setBookReadForUser));
+router.patch('/me/read', catchErrors(updateBookReadForUser));
+router.delete('/me/read/:id', catchErrors(deleteBookReadForUser));
+router.get('/:id/read', catchErrors(getReadBooksByUserId));
 
 module.exports = router;

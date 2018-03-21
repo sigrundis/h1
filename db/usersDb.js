@@ -16,13 +16,23 @@ const UPDATE_USER_IMGURL =
 //    VALUES($1, $2, $3, $4, $5)
 //    RETURNING *';
 // const DELETE_ROW_IN_READBOOKS = 'DELETE FROM readbooks WHERE  id = $1';
+const READ_BOOKS_BY_USER_ID_AND_BOOK_ID =
+  'SELECT * FROM readbooks WHERE userId = $1 AND bookId = $2';
 const READ_BOOKS_BY_USER_ID = 'SELECT * FROM readbooks WHERE userId = $1';
+const FIND_READ_BOOK_BY_READ_BOOK_ID = 'SELECT * FROM readbooks WHERE id = $1';
+const INSERT_INTO_READBOOKS =
+  'INSERT INTO readbooks (userId, bookId, grade, review) VALUES ($1, $2, $3, $4) RETURNING *';
+const UPDATE_READ_BOOKS =
+  'UPDATE readbooks SET grade = $3, review = $4 WHERE userId = $1 AND bookId = $2 RETURNING *';
+const DELETE_READ_BOOK = 'DELETE FROM readbooks where id = $1 RETURNING *';
 
 function objToCleanArray(object) {
   let array = object && Object.values(object);
   array = array.map((a) => xss(a));
   return array;
 }
+
+const xssArray = (array) => array.map((i) => xss(i));
 
 async function select() {
   const result = await queryDb(READ_ALL_USERS);
@@ -63,6 +73,14 @@ async function readAll(offset, limit) {
     success: true,
     result,
   };
+}
+
+async function findReadBookById(id) {
+  const result = await queryDb(FIND_READ_BOOK_BY_READ_BOOK_ID, [xss(id)]);
+  if (result.rowCount === 1) {
+    return result.rows[0];
+  }
+  return null;
 }
 
 async function validateNewUser({ username, password, name } = {}) {
@@ -136,6 +154,26 @@ async function validateUpdatedUser({ password, name } = {}) {
     validationArray.push({
       field: 'name',
       error: 'Nafn má ekki vera tómt',
+    });
+  }
+
+  return validationArray;
+}
+
+function validateReadBook({ grade, review } = {}) {
+  const validationArray = [];
+
+  if (typeof grade !== 'number' || grade < 1 !== grade > 5) {
+    validationArray.push({
+      field: 'grade',
+      error: 'Einkunn verður að vera tala á bilinu 1 - 5.',
+    });
+  }
+
+  if (typeof review !== 'string') {
+    validationArray.push({
+      field: 'review',
+      error: 'Umsögn verður að vera strengur',
     });
   }
 
@@ -234,7 +272,7 @@ async function updateImage({ id, imgurl } = {}) {
   };
 }
 
-async function findBooksByUserId({ id } = {}) {
+async function findReadBooksByUserId({ id } = {}) {
   const query = READ_BOOKS_BY_USER_ID;
 
   const values = [id];
@@ -247,8 +285,88 @@ async function findBooksByUserId({ id } = {}) {
   };
 }
 
+// REPLACE WITH FUNCTION FROM BOOKS !!!
 async function tempBookFind({ id } = {}) {
   const query = 'SELECT * FROM books WHERE id = $1';
+
+  const values = [id];
+
+  const result = await queryDb(query, values);
+
+  return {
+    success: true,
+    data: result.rows[0],
+  };
+}
+
+async function getReadBookByBook({ id, bookId } = {}) {
+  const query = READ_BOOKS_BY_USER_ID_AND_BOOK_ID;
+
+  const values = [id, bookId];
+
+  const result = await queryDb(query, values);
+
+  return {
+    success: true,
+    data: result.rows[0],
+  };
+}
+
+async function createReadBook({ id, bookId, grade, review } = {}) {
+  const validation = validateReadBook({ grade, review });
+  if (validation.length > 0) {
+    return {
+      success: false,
+      validation,
+      data: null,
+    };
+  }
+
+  const query = INSERT_INTO_READBOOKS;
+
+  const values = xssArray([id, bookId, grade, review]);
+
+  const result = await queryDb(query, values);
+
+  return {
+    success: true,
+    validation: [],
+    data: result.rows[0],
+  };
+}
+
+async function updateReadBook(data, oldReadBook) {
+  const {
+    id,
+    bookId,
+    grade = oldReadBook.grade,
+    review = oldReadBook.review,
+  } = data;
+
+  const validation = validateReadBook({ grade, review });
+  if (validation.length > 0) {
+    return {
+      success: false,
+      validation,
+      data: null,
+    };
+  }
+
+  const query = UPDATE_READ_BOOKS;
+
+  const values = xssArray([id, bookId, grade, review]);
+
+  const result = await queryDb(query, values);
+
+  return {
+    success: true,
+    validation: [],
+    data: result.rows[0],
+  };
+}
+
+async function deleteReadBookById({ id } = {}) {
+  const query = DELETE_READ_BOOK;
 
   const values = [id];
 
@@ -269,6 +387,11 @@ module.exports = {
   readAll,
   update,
   updateImage,
-  findBooksByUserId,
+  findReadBooksByUserId,
   tempBookFind,
+  findReadBookById,
+  createReadBook,
+  getReadBookByBook,
+  updateReadBook,
+  deleteReadBookById,
 };

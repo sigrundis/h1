@@ -12,7 +12,8 @@ function catchErrors(fn) {
 }
 
 async function readAllRoute(req, res) {
-  const result = await readAll();
+  const { offset = 0, limit = 10 } = req.query;
+  const result = await readAll(offset, limit);
 
   return res.json(result.data);
 }

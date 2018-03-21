@@ -1,6 +1,7 @@
 const bcrypt = require('bcrypt');
 const { queryDb } = require('./db');
 const validator = require('validator');
+const { pagingSelect } = require('../paging');
 const xss = require('xss'); // eslint-disable-line
 
 const INSERT_INTO_USERS =
@@ -47,11 +48,16 @@ async function findById(id) {
   return null;
 }
 
-async function readAll() {
-  const result = await queryDb(READ_ALL_USERS);
+async function readAll(offset, limit) {
+  const cleanOffset = xss(offset);
+  const cleanLimit = xss(limit);
+  const query = `SELECT * FROM users ORDER BY id OFFSET ${Number(cleanOffset)} LIMIT ${Number(cleanLimit)}`;
+
+  const result = await pagingSelect('users', [], '', query, offset, limit);
+
   return {
     success: true,
-    data: result.rows,
+    result,
   };
 }
 

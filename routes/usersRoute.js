@@ -33,13 +33,22 @@ function catchErrors(fn) {
 }
 
 async function readAllUsers(req, res) {
-  const result = await readAll();
-  const usersWithoutPw = result.data.map((d) => {
+  const { offset = 0, limit = 10 } = req.query;
+  const result = await readAll(offset, limit);
+
+  const usersWithoutPw = result.result.data.items.map((d) => {
     const { username, name } = d;
     const imgurl = d.imgurl || '';
     return { username, name, imgurl };
   });
-  return res.json(usersWithoutPw);
+  const resultFinal = {
+    limit: result.result.data.limit,
+    offset: result.result.data.offset,
+    items: usersWithoutPw,
+    prev: result.result.data.prev,
+    next: result.result.data.next,
+  };
+  return res.json(resultFinal);
 }
 
 async function getUserById(req, res) {

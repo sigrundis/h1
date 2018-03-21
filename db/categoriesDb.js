@@ -79,7 +79,10 @@ async function create(title) {
 }
 
 async function readAll(offset = 0, limit = 10) {
-  const query = `SELECT * FROM categories ORDER BY id OFFSET ${offset} LIMIT ${limit}`;
+  const cleanOffset = xss(offset);
+  const cleanLimit = xss(limit);
+
+  const query = `SELECT * FROM categories ORDER BY id OFFSET ${Number(cleanOffset)} LIMIT ${Number(cleanLimit)}`;
 
   const result = await pagingSelect('categories', [], '', query, offset, limit);
 

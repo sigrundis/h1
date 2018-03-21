@@ -48,7 +48,9 @@ async function findById(id) {
 }
 
 async function readAll(offset, limit) {
-  const query = `SELECT * FROM users ORDER BY id OFFSET ${offset} LIMIT ${limit}`;
+  const cleanOffset = xss(offset);
+  const cleanLimit = xss(limit);
+  const query = `SELECT * FROM users ORDER BY id OFFSET ${Number(cleanOffset)} LIMIT ${Number(cleanLimit)}`;
 
   const result = await pagingSelect('users', [], '', query, offset, limit);
 

@@ -171,11 +171,13 @@ async function addOne({
 // Finnur allar bækur eða bækur sem uppfylla viðeigandi leitarstreng
 async function findAll(search, offset = 0, limit = 10) {
   const info = {};
+  const cleanOffset = xss(offset);
+  const cleanLimit = xss(limit);
 
   try {
     if (!search) {
-      const query = `SELECT * FROM books ORDER BY id OFFSET ${offset} LIMIT ${limit}`;
-      const rows = await pagingSelect('books', [], search, query, offset, limit);
+      const query = `SELECT * FROM books ORDER BY id OFFSET ${Number(cleanOffset)} LIMIT ${Number(cleanLimit)}`;
+      const rows = await pagingSelect('books', [], '', query, offset, limit);
 
       return rows;
     }
@@ -191,7 +193,7 @@ async function findAll(search, offset = 0, limit = 10) {
 
     const values = [xss(search)];
 
-    const queryAll = `SELECT * FROM books WHERE to_tsvector(title) @@ to_tsquery($1) ORDER BY id OFFSET ${offset} LIMIT ${limit}`;
+    const queryAll = `SELECT * FROM books WHERE to_tsvector(title) @@ to_tsquery($1) ORDER BY id OFFSET ${Number(cleanOffset)} LIMIT ${Number(cleanLimit)}`;
     const result = await pagingSelect('books', values, search, queryAll, offset, limit);
 
     return await result;

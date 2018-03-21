@@ -16,6 +16,7 @@ async function pagingSelect(tablename, values = [], search, query, offset = 0, l
       offset,
       items: res.rows,
     };
+
     if (!search) {
       if (offset > 0) {
         info.data.prev = {
@@ -23,7 +24,7 @@ async function pagingSelect(tablename, values = [], search, query, offset = 0, l
         };
       }
 
-      if (res.rows.length <= limit) {
+      if (res.rows.length >= limit) {
         info.data.next = {
           href: `/${tablename}?offset=${Number(offset) + limit}&limit=${limit}`,
         };

@@ -155,7 +155,7 @@ async function validateUpdatedUser({ password, name } = {}) {
 function validateReadBook({ grade, review } = {}) {
   const validationArray = [];
 
-  if (typeof grade !== 'number' || grade < 1 !== grade > 5) {
+  if (typeof grade !== 'number' || (grade < 1) !== (grade > 5)) {
     validationArray.push({
       field: 'grade',
       error: 'Einkunn verður að vera tala á bilinu 1 - 5.',

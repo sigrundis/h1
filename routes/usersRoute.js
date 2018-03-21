@@ -25,7 +25,7 @@ const {
   update,
   updateImage,
   findReadBooksByUserId,
-  tempBookFind,
+  readOne,
   createReadBook,
   getReadBookByBook,
   updateReadBook,
@@ -130,7 +130,7 @@ async function setBookReadForUser(req, res) {
     const { id } = req.user;
 
     // Check if book exists
-    const book = await tempBookFind({ bookId });
+    const book = await readOne(bookId);
     if (!book) {
       return res.status(404).json({ error: 'Book not found!' });
     }

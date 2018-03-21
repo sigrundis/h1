@@ -2,6 +2,7 @@ const bcrypt = require('bcrypt');
 const { queryDb } = require('./db');
 const validator = require('validator');
 const xss = require('xss'); // eslint-disable-line
+const { readOne } = require('./booksDb');
 
 const INSERT_INTO_USERS =
   'INSERT INTO users(username, password, name)VALUES($1, $2, $3) RETURNING *';
@@ -277,20 +278,6 @@ async function findReadBooksByUserId({ id } = {}) {
   };
 }
 
-// REPLACE WITH FUNCTION FROM BOOKS !!!
-async function tempBookFind({ id } = {}) {
-  const query = 'SELECT * FROM books WHERE id = $1';
-
-  const values = [id];
-
-  const result = await queryDb(query, values);
-
-  return {
-    success: true,
-    data: result.rows[0],
-  };
-}
-
 async function getReadBookByBook({ id, bookId } = {}) {
   const query = READ_BOOKS_BY_USER_ID_AND_BOOK_ID;
 
@@ -385,7 +372,7 @@ module.exports = {
   update,
   updateImage,
   findReadBooksByUserId,
-  tempBookFind,
+  readOne,
   findReadBookById,
   createReadBook,
   getReadBookByBook,
